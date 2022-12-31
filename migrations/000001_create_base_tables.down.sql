@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS recruitment_comments;
+DROP TABLE IF EXISTS recruitment_requests
+DROP TABLE IF EXISTS resource_assignments;
+DROP TABLE IF EXISTS resource_requests;
+DROP TABLE IF EXISTS projects;
+DROP TABLE IF EXISTS project_statuses;
+DROP TABLE IF EXISTS clearances;
+DROP TABLE IF EXISTS job_titles;
+DROP TABLE IF EXISTS workgroups;
