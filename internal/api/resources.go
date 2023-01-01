@@ -66,6 +66,7 @@ func (api *API) handleUpdateResource() http.HandlerFunc {
 		id, err := api.readIDParam(r)
 		if err != nil || id < 1 {
 			api.notFoundResponse(w, r)
+			return
 		}
 
 		resource, err := api.models.Resources.Get(id)

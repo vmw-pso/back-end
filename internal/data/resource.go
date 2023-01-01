@@ -55,6 +55,7 @@ func ValidateJobTitle(v *validator.Validator, jobTitle string) {
 }
 
 func ValidateManager(v *validator.Validator, manager string) {
+	// TODO: Change this to pull managers from database and compare into cache on start
 	managers := []string{
 		"Caroline Dimitrovski",
 		"Gary Doyle",
@@ -66,6 +67,7 @@ func ValidateManager(v *validator.Validator, manager string) {
 }
 
 func ValidateWorkgroup(v *validator.Validator, workgroup string) {
+	// TODO: Change this to pull workgroups from database into cache on start
 	workgroups := []string{
 		"APJ - Managers and Non-Billable",
 		"Architects - ANZ",
@@ -77,6 +79,7 @@ func ValidateWorkgroup(v *validator.Validator, workgroup string) {
 }
 
 func ValidatorClearance(v *validator.Validator, clearance string) {
+
 	clearances := []string{
 		"None",
 		"Baseline",
@@ -138,19 +141,19 @@ func (m *ResourceModel) Get(id int64) (*Resource, error) {
 	}
 
 	query := `
-		SELECT resources.id, resources.name, resources.email, resources.job_title, m.name AS manager, workgroups.name, resources.clearance, resources.specialties, resources.certifications, resources.active
+		SELECT resources.name, resources.email, resources.job_title, m.name AS manager, workgroups.name, resources.clearance, resources.specialties, resources.certifications, resources.active
 		FROM ((resources
 			INNER JOIN resources m ON resources.manager_id=m.id)
-			INNER JOIN workgroups ON workgroups.id=resources.workgroup_id)
+			INNER JOIN workgroups ON workgroups.id = resources.workgroup_id)
 		WHERE resources.id=$1`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var r Resource
+	r.ID = id
 
 	err := m.DB.QueryRowContext(ctx, query, id).Scan(
-		&r.ID,
 		&r.Name,
 		&r.Email,
 		&r.JobTitle,
@@ -217,13 +220,13 @@ func (m *ResourceModel) GetAll(name string, workgroups []string, clearance strin
 		FROM ((resources r
 			INNER JOIN resources m ON r.manager_id = m.id)
 			INNER JOIN workgroups ON workgroups.id = r.workgroup_id)
-		WHERE (workgroups.name = ANY ($1) OR $1 = '{}')
-		AND (r.clearance = $2 OR $2 = '')
-		AND (r.specialties @> $3 OR $3 = '{}')
-		AND (r.certifications @> $4 OR $4 = '{}')
-		AND (m.name = $5 OR $5 = '')
-		AND (r.active = $6)
-		AND (r.name = $7 OR $7 = '')
+		WHERE (workgroups.name = ANY ($1) OR $1='{}')
+		AND (r.clearance=$2 OR $2='')
+		AND (r.specialties @> $3 OR $3='{}')
+		AND (r.certifications @> $4 OR $4='{}')
+		AND (m.name=$5 OR $5='')
+		AND (r.active=$6)
+		AND (r.name=$7 OR $7='')
 		ORDER BY %s %s, id ASC
 		LIMIT $8 OFFSET $9`, fmt.Sprintf("r.%s", filters.sortColumn()), filters.sortDirection())
 

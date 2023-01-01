@@ -1,3 +1,2 @@
 # exclude base and resource data from repository
-scripts/sql/base_data.sql
-scripts/sql/resources_data.sql
+scripts/sql/*
