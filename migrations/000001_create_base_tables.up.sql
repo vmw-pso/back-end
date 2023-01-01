@@ -1,105 +1,128 @@
 CREATE EXTENSION IF NOT EXISTS citext;
 
-CREATE TABLE "workgroups" (
-  "id" bigserial PRIMARY KEY,
-  "name" varchar NOT NULL,
+CREATE TYPE "clearance" AS ENUM (
+  'None',
+  'Baseline',
+  'NV1',
+  'NV2',
+  'TSPV'
+);
+
+CREATE TYPE "revenue_type" AS ENUM (
+  'Fixed Fee',
+  'T&M'
+);
+
+CREATE TABLE "workgroup" (
+  "workgroup_id" bigserail PRIMARY KEY,
+  "workgroup_name" varchar,
   "description" varchar
 );
 
-CREATE TABLE "job_titles" (
-  "title" varchar PRIMARY KEY
+CREATE TABLE "job_title" (
+  "title_id" bigserial PRIMARY KEY,
+  "title" varchar,
+  "description" varchar
 );
 
-CREATE TABLE "clearances" (
-  "level" varchar PRIMARY KEY
-);
-
-CREATE TABLE "resources" (
-  "id" integer PRIMARY KEY,
-  "name" varchar NOT NULL,
-  "email" varchar NOT NULL,
-  "job_title" varchar NOT NULL,
-  "manager_id" integer NOT NULL,
-  "workgroup_id" integer NOT NULL,
-  "clearance" varchar,
+CREATE TABLE "resource" (
+  "employee_id" integer PRIMARY KEY,
+  "name" varchar,
+  "email" varchar,
+  "job_title_id" integer,
+  "manager_id" integer,
+  "workgroup_id" integer,
+  "clearance_level" clearance,
   "specialties" text[],
   "certifications" text[],
-  "active" boolean NOT NULL DEFAULT 't'
+  "active" boolean
 );
 
-CREATE TABLE "project_statuses" (
-  "status" varchar PRIMARY KEY
+CREATE TABLE "project_status" (
+  "status_id" bigserial PRIMARY KEY,
+  "status" varchar,
+  "description" varchar
 );
 
-CREATE TABLE "projects" (
-  "id" bigserial PRIMARY KEY,
-  "opportunity_id" varchar,
+CREATE TABLE "project" (
+  "opportunity_id" varchar PRIMARY KEY,
   "changepoint_id" varchar,
-  "customer" varchar NOT NULL,
+  "name" varchar,
+  "revenue_type" revenue_type,
+  "customer" varchar,
   "end_customer" varchar,
-  "project_manager_id" int NOT NULL,
-  "status" varchar NOT NULL
+  "project_manager_id" int,
+  "status" varchar
 );
 
-CREATE TABLE "resource_requests" (
-  "id" bigserial PRIMARY KEY,
-  "project_id" integer NOT NULL,
-  "job_title" varchar NOT NULL,
-  "skills" text[] NOT NULL,
+CREATE TABLE "resource_request" (
+  "request_id" bigserial PRIMARY KEY,
+  "opportunity_id" integer,
+  "job_title_id" integer,
+  "total_hours" numeric,
+  "skills" text[],
   "start_date" date,
-  "end_date" date,
   "hours_per_week" numeric,
   "status" varchar,
-  "created_at" timestamp NOT NULL DEFAULT NOW(),
-  "updated_at" timestamp NOT NULL DEFAULT NOW(),
-  "version" integer NOT NULL DEFAULT 1
+  "created_at" timestamp,
+  "updated_at" timestamp,
+  "version" integer
 );
 
-CREATE TABLE "resource_assignments" (
-  "id" bigserial PRIMARY KEY,
-  "resource__id" integer NOT NULL,
-  "resource_request_id" integer NOT NULL,
-  "start_date" date NOT NULL,
-  "end_date" date NOT NULL,
-  "hours_per_week" numeric NOT NULL
+CREATE TABLE "resource_request_comment" (
+  "comment_id" bigserial PRIMARY KEY,
+  "request_id" integer,
+  "comment" varchar,
+  "created_at" timestamp,
+  "updated_at" timestamp,
+  "version" integer
 );
 
-CREATE TABLE "recruitment_requests" (
-  "id" bigserial PRIMARY KEY,
-  "resource_requests_id" integer NOT NULL,
-  "description" varchar NOT NULL,
-  "created_at" timestamp NOT NULL DEFAULT NOW(),
+CREATE TABLE "resource_assignment" (
+  "assignment_id" bigserial PRIMARY KEY,
+  "employee_id" integer,
+  "resource_request_id" integer,
+  "start_date" date,
+  "end_date" date,
+  "hours_per_week" numeric
+);
+
+CREATE TABLE "new_hire" (
+  "requirement_id" bigserial PRIMARY KEY,
+  "resource_request_id" integer,
+  "description" varchar,
+  "created_at" timestamp,
   "filled" boolean,
   "status" varchar
 );
 
-CREATE TABLE "recruitment_comments" (
-  "id" bigserial PRIMARY KEY,
-  "recruitment_request_id" integer NOT NULL,
-  "comment" varchar NOT NULL,
-  "created_at" timestamp NOT NULL DEFAULT NOW(),
-  "updated_at" timestamp NOT NULL DEFAULT NOW(),
-  "version" integer NOT NULL DEFAULT 1
+CREATE TABLE "new_hire_update" (
+  "update_id" bigserial PRIMARY KEY,
+  "requirement_id" integer,
+  "comment" varchar,
+  "created_at" timestamp,
+  "updated_at" timestamp,
+  "version" integer
 );
 
-ALTER TABLE "resources" ADD FOREIGN KEY ("workgroup_id") REFERENCES "workgroups" ("id");
+ALTER TABLE "resource" ADD FOREIGN KEY ("workgroup_id") REFERENCES "workgroup" ("workgroup_id");
 
-ALTER TABLE "resources" ADD FOREIGN KEY ("clearance") REFERENCES "clearances" ("level");
+ALTER TABLE "resource" ADD FOREIGN KEY ("job_title_id") REFERENCES "job_title" ("title_id");
 
-ALTER TABLE "resources" ADD FOREIGN KEY ("job_title") REFERENCES "job_titles" ("title");
+ALTER TABLE "resource_request" ADD FOREIGN KEY ("opportunity_id") REFERENCES "project" ("opportunity_id");
 
-ALTER TABLE "resource_requests" ADD FOREIGN KEY ("project_id") REFERENCES "projects" ("id");
+ALTER TABLE "project" ADD FOREIGN KEY ("status") REFERENCES "project_status" ("status");
 
-ALTER TABLE "projects" ADD FOREIGN KEY ("status") REFERENCES "project_statuses" ("status");
+ALTER TABLE "new_hire" ADD FOREIGN KEY ("requirement_id") REFERENCES "resource_request" ("request_id");
 
-ALTER TABLE "recruitment_requests" ADD FOREIGN KEY ("resource_requests_id") REFERENCES "resource_requests" ("id");
+ALTER TABLE "new_hire_update" ADD FOREIGN KEY ("requirement_id") REFERENCES "new_hire" ("requirement_id");
 
-ALTER TABLE "recruitment_comments" ADD FOREIGN KEY ("recruitment_request_id") REFERENCES "recruitment_requests" ("id");
+ALTER TABLE "resource_assignment" ADD FOREIGN KEY ("employee_id") REFERENCES "resource" ("employee_id");
 
-ALTER TABLE "resource_assignments" ADD FOREIGN KEY ("resource__id") REFERENCES "resources" ("id");
+ALTER TABLE "resource_assignment" ADD FOREIGN KEY ("resource_request_id") REFERENCES "resource_request" ("opportunity_id");
 
-ALTER TABLE "resource_assignments" ADD FOREIGN KEY ("resource_request_id") REFERENCES "resource_requests" ("id");
+ALTER TABLE "resource" ADD FOREIGN KEY ("manager_id") REFERENCES "resource" ("employee_id");
 
-ALTER TABLE "resources" ADD FOREIGN KEY ("manager_id") REFERENCES "resources" ("id");
+ALTER TABLE "resource_request" ADD FOREIGN KEY ("job_title_id") REFERENCES "job_title" ("title_id");
 
-ALTER TABLE "resource_requests" ADD FOREIGN KEY ("job_title") REFERENCES "job_titles" ("title");
+ALTER TABLE "resource_request_comment" ADD FOREIGN KEY ("request_id") REFERENCES "resource_request" ("request_id");
