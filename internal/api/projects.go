@@ -167,6 +167,7 @@ func (api *API) handleShowProject() http.HandlerFunc {
 func (api *API) handleListProjects() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
+			ChangepointID  string
 			Customer       string
 			EndCustomer    string
 			ProjectManager string
@@ -179,6 +180,7 @@ func (api *API) handleListProjects() http.HandlerFunc {
 
 		qs := r.URL.Query()
 
+		input.ChangepointID = api.readString(qs, "changepointId", "")
 		input.Customer = api.readString(qs, "customer", "")
 		input.EndCustomer = api.readString(qs, "endCustomer", "")
 		input.ProjectManager = api.readString(qs, "projectManager", "")
@@ -195,7 +197,7 @@ func (api *API) handleListProjects() http.HandlerFunc {
 		}
 
 		projects, metadata, err := api.models.Projects.GetAll(input.Customer, input.EndCustomer,
-			input.ProjectManager, input.Status, input.RevenueType, input.Filters)
+			input.ProjectManager, input.Status, input.RevenueType, input.ChangepointID, input.Filters)
 		if err != nil {
 			api.serverErrorResponse(w, r, err)
 			return

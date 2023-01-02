@@ -170,7 +170,7 @@ func (m *ProjectModel) Update(p *Project) error {
 	return nil
 }
 
-func (m *ProjectModel) GetAll(customer, endCustomer, projectManager, status, revenueType string, filters Filters) ([]*Project, Metadata, error) {
+func (m *ProjectModel) GetAll(customer, endCustomer, projectManager, status, revenueType, changepointID string, filters Filters) ([]*Project, Metadata, error) {
 	query := fmt.Sprintf(`
 		SELECT count(*) OVER(), p.opportunity_id, p.changepoint_id, p.name, p.revenue_type, p.customer, p.end_customer, r.name, ps.status
 		FROM ((project p
@@ -181,13 +181,14 @@ func (m *ProjectModel) GetAll(customer, endCustomer, projectManager, status, rev
 		AND (r.name=$3 OR $3='')
 		AND (ps.status=$4 or $4='')
 		AND (p.revenue_type::text=$5 OR $5='')
+		AND (p.changepoint_id = $6 OR $6='')
 		ORDER BY %s %s, opportunity_id ASC
-		LIMIT $6 OFFSET $7`, fmt.Sprintf("p.%s", filters.sortColumn()), filters.sortDirection())
+		LIMIT $7 OFFSET $8`, fmt.Sprintf("p.%s", filters.sortColumn()), filters.sortDirection())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	args := []interface{}{customer, endCustomer, projectManager, status, revenueType, filters.limit(), filters.offset()}
+	args := []interface{}{customer, endCustomer, projectManager, status, revenueType, changepointID, filters.limit(), filters.offset()}
 
 	rows, err := m.DB.QueryContext(ctx, query, args...)
 	if err != nil {
