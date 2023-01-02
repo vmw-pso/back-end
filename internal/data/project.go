@@ -11,8 +11,7 @@ import (
 )
 
 type Project struct {
-	ID             int64  `json:"id"`
-	OpportunityID  string `json:"opportunityId,omitempty"`
+	OpportunityID  string `json:"opportunityId"`
 	ChangepointID  string `json:"changepointId,omitempty"`
 	RevenueType    string `json:"revenueType"`
 	Name           string `json:"name"`
@@ -24,8 +23,8 @@ type Project struct {
 
 func ValidateRevenueType(v *validator.Validator, revenueType string) {
 	revenueTypes := []string{
+		"Fixed Fee",
 		"T&M",
-		"FF",
 	}
 	v.Check(validator.PermittedValue(revenueType, revenueTypes...), "revenueType", "is not a recognised revenue type [T&M, FF]")
 }
@@ -75,12 +74,11 @@ type ProjectModel struct {
 
 func (m *ProjectModel) Insert(p *Project) error {
 	query := `
-		INSERT INTO projects
-		(opportunity_id, changepoint_id, revenue_type, name, customer, end_customer, project_manager_id, status)
+		INSERT INTO project
+		(opportunity_id, changepoint_id, revenue_type, name, customer, end_customer, project_manager_id, status_id)
 		VALUES ($1, $2, $3, $4, $5, $6
-			   (SELECT id FROM resources WHERE name=$7),
-			   $8)
-		RETURNING id`
+			   (SELECT employee_id FROM resource WHERE name=$7),
+			   (SELECT status_id FROM project_status WHERE status=$8))`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -96,28 +94,28 @@ func (m *ProjectModel) Insert(p *Project) error {
 		p.Status,
 	}
 
-	return m.DB.QueryRowContext(ctx, query, args...).Scan(&p.ID)
+	return m.DB.QueryRowContext(ctx, query, args...).Scan()
 }
 
-func (m *ProjectModel) Get(id int64) (*Project, error) {
-	if id < 1 {
+func (m *ProjectModel) Get(id string) (*Project, error) {
+	if id == "" {
 		return nil, ErrNotFound
 	}
 
 	query := `
-		SELECT opportunity_id, changepoint_id, revenue_type, name, customer, end_customer, resources.name, status
-		FROM(projects
-			INNER JOIN resources ON resources.id=projects.project_manager_id)
-		WHERE projects.id=$1`
+		SELECT changepoint_id, revenue_type, name, customer, end_customer, resource.name, project_status.status
+		FROM((project p
+			(INNER JOIN resource ON resource.employee_id=p.project_manager_id)
+			(INNER JOIN project_status ON p.status_id=project_status.status_id))
+		WHERE opportunity_id=$1`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var p Project
-	p.ID = id
+	p.OpportunityID = id
 
 	err := m.DB.QueryRowContext(ctx, query, id).Scan(
-		&p.OpportunityID,
 		&p.ChangepointID,
 		&p.RevenueType,
 		&p.Name,
@@ -140,17 +138,16 @@ func (m *ProjectModel) Get(id int64) (*Project, error) {
 
 func (m *ProjectModel) Update(p *Project) error {
 	query := `
-		UPDATE projects
-		SET opportunity_id=$1, changepoint_id=$2, revenue_type=$3, name=$4, customer=$5, end_customer=$6,
-		    project_manager_id=(SELECT id FROM resources WHERE resources.name=$7),
-			status=$8
-		WHERE projects.id=$9`
+		UPDATE project
+		SET changepoint_id=$1, revenue_type=$2, name=$3, customer=$4, end_customer=$5,
+		    project_manager_id=(SELECT id FROM resources WHERE resources.name=$6),
+			status_id=(SELECT status_id FROM project_status WHERE status=$7)
+		WHERE opportunity_id=$8`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	args := []interface{}{
-		p.OpportunityID,
 		p.ChangepointID,
 		p.RevenueType,
 		p.Name,
@@ -158,7 +155,7 @@ func (m *ProjectModel) Update(p *Project) error {
 		p.EndCustomer,
 		p.ProjectManager,
 		p.Status,
-		p.ID,
+		p.OpportunityID,
 	}
 
 	err := m.DB.QueryRowContext(ctx, query, args...).Scan()
@@ -173,22 +170,24 @@ func (m *ProjectModel) Update(p *Project) error {
 	return nil
 }
 
-func (m *ProjectModel) GetAll(customer, endCustomer, projectManager, status string, filters Filters) ([]*Project, Metadata, error) {
+func (m *ProjectModel) GetAll(customer, endCustomer, projectManager, status, revenueType string, filters Filters) ([]*Project, Metadata, error) {
 	query := fmt.Sprintf(`
-		SELECT count(*) OVER(), p.id, p.opportunity_id, p.changepoint_id, p.revenue_type, p.name, p.customer, p.end_customer, r.name as projectManager, p.status
-		FROM (projects p
-			INNER JOIN resources r ON p.project_manager_id=r.id)
+		SELECT count(*) OVER(), p.opportunity_id, p.changepoint_id, p.name, p.revenue_type, p.customer, p.end_customer, r.name, ps.status
+		FROM ((project p
+			INNER JOIN resource r ON r.employee_id=p.project_manager_id)
+			INNER JOIN project_status ps ON ps.status_id=p.status_id)
 		WHERE (p.customer=$1 OR $1='')
 		AND (p.end_customer=$2 OR $2='')
 		AND (r.name=$3 OR $3='')
-		AND (p.status=$4 or $4='')
-		ORDER BY %s %s, id ASC
-		LIMIT $5 OFFSET $6`, fmt.Sprintf("p.%s", filters.sortColumn()), filters.sortDirection())
+		AND (ps.status=$4 or $4='')
+		AND (p.revenue_type::text=$5 OR $5='')
+		ORDER BY %s %s, opportunity_id ASC
+		LIMIT $6 OFFSET $7`, fmt.Sprintf("p.%s", filters.sortColumn()), filters.sortDirection())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	args := []interface{}{customer, endCustomer, projectManager, status, filters.limit(), filters.offset()}
+	args := []interface{}{customer, endCustomer, projectManager, status, revenueType, filters.limit(), filters.offset()}
 
 	rows, err := m.DB.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -203,11 +202,10 @@ func (m *ProjectModel) GetAll(customer, endCustomer, projectManager, status stri
 		var project Project
 		err := rows.Scan(
 			&totalRecords,
-			&project.ID,
 			&project.OpportunityID,
 			&project.ChangepointID,
-			&project.RevenueType,
 			&project.Name,
+			&project.RevenueType,
 			&project.Customer,
 			&project.EndCustomer,
 			&project.ProjectManager,

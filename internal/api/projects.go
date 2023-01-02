@@ -60,11 +60,7 @@ func (api *API) handleCreateProject() http.HandlerFunc {
 
 func (api *API) handleUpdateProject() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, err := api.readIDParam(r)
-		if err != nil {
-			api.notFoundResponse(w, r)
-			return
-		}
+		id := api.readIDStringParam(r)
 
 		project, err := api.models.Projects.Get(id)
 		if err != nil {
@@ -78,7 +74,6 @@ func (api *API) handleUpdateProject() http.HandlerFunc {
 		}
 
 		var input struct {
-			OpportunityID  *string `json:"opportunityId"`
 			ChangepointID  *string `json:"changepointId"`
 			RevenueType    *string `json:"revenueType"`
 			Name           *string `json:"name"`
@@ -92,10 +87,6 @@ func (api *API) handleUpdateProject() http.HandlerFunc {
 		if err != nil {
 			api.badRequestResponse(w, r, err)
 			return
-		}
-
-		if input.OpportunityID != nil {
-			project.OpportunityID = *input.OpportunityID
 		}
 
 		if input.ChangepointID != nil {
@@ -153,11 +144,7 @@ func (api *API) handleUpdateProject() http.HandlerFunc {
 
 func (api *API) handleShowProject() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, err := api.readIDParam(r)
-		if err != nil {
-			api.notFoundResponse(w, r)
-			return
-		}
+		id := api.readIDStringParam(r)
 
 		project, err := api.models.Projects.Get(id)
 		if err != nil {
@@ -184,6 +171,7 @@ func (api *API) handleListProjects() http.HandlerFunc {
 			EndCustomer    string
 			ProjectManager string
 			Status         string
+			RevenueType    string
 			data.Filters
 		}
 
@@ -195,10 +183,11 @@ func (api *API) handleListProjects() http.HandlerFunc {
 		input.EndCustomer = api.readString(qs, "endCustomer", "")
 		input.ProjectManager = api.readString(qs, "projectManager", "")
 		input.Status = api.readString(qs, "status", "")
+		input.RevenueType = api.readString(qs, "revenueType", "")
 		input.Filters.Page = api.readInt(qs, "page", 1, v)
 		input.Filters.PageSize = api.readInt(qs, "pageSize", 20, v)
-		input.Filters.Sort = api.readString(qs, "sort", "id")
-		input.Filters.SortSafelist = []string{"id", "customer", "endCustomer", "projectManager", "-id", "-customer", "-endCustomer", "-projectManager"}
+		input.Filters.Sort = api.readString(qs, "sort", "opportunity_id")
+		input.Filters.SortSafelist = []string{"opportunity_id", "customer", "end_customer", "project_manager", "-opportunity_id", "-customer", "-end_customer", "-project_manager"}
 
 		if data.ValidateFilters(v, input.Filters); !v.Valid() {
 			api.failedValidationResponse(w, r, v.Errors)
@@ -206,7 +195,7 @@ func (api *API) handleListProjects() http.HandlerFunc {
 		}
 
 		projects, metadata, err := api.models.Projects.GetAll(input.Customer, input.EndCustomer,
-			input.ProjectManager, input.Status, input.Filters)
+			input.ProjectManager, input.Status, input.RevenueType, input.Filters)
 		if err != nil {
 			api.serverErrorResponse(w, r, err)
 			return

@@ -1,7 +1,7 @@
 DROP TABLE IF EXISTS new_hire_update;
-DROP TABLE IF EXISTS new_hire
+DROP TABLE IF EXISTS new_hire;
 DROP TABLE IF EXISTS resource_assignment;
-DROP TABLE IF EXISTS resource_request_comment;
+DROP TABLE IF EXISTS resourse_request_comment;
 DROP TABLE IF EXISTS resource_request;
 DROP TABLE IF EXISTS project;
 DROP TABLE IF EXISTS project_status;
