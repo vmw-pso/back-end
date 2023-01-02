@@ -180,8 +180,8 @@ func (api *API) handleListResources() http.HandlerFunc {
 		input.Active = api.readBool(qs, "active", true, v)
 		input.Filters.Page = api.readInt(qs, "page", 1, v)
 		input.Filters.PageSize = api.readInt(qs, "pageSize", 20, v)
-		input.Filters.Sort = api.readString(qs, "sort", "id")
-		input.Filters.SortSafelist = []string{"id", "name", "-id", "-name"}
+		input.Filters.Sort = api.readString(qs, "sort", "employee_id")
+		input.Filters.SortSafelist = []string{"employee_id", "name", "-employee_id", "-name"}
 
 		if data.ValidateFilters(v, input.Filters); !v.Valid() {
 			api.failedValidationResponse(w, r, v.Errors)
