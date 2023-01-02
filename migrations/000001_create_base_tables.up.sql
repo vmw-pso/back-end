@@ -1,5 +1,18 @@
 CREATE EXTENSION IF NOT EXISTS citext;
 
+CREATE TYPE "clearance" AS ENUM (
+  'None',
+  'Baseline',
+  'NV1',
+  'NV2',
+  'TSPV'
+);
+
+CREATE TYPE "revenue_type" AS ENUM (
+  'Fixed Fee',
+  'T&M'
+);
+
 CREATE TABLE "workgroup" (
   "workgroup_id" bigserial PRIMARY KEY,
   "workgroup_name" varchar NOT NULL UNIQUE,
@@ -19,7 +32,7 @@ CREATE TABLE "resource" (
   "job_title_id" integer NOT NULL,
   "manager_id" integer NOT NULL,
   "workgroup_id" integer NOT NULL,
-  "clearance" varchar NOT NULL CHECK (clearance = ANY(ARRAY['None', 'Baseline', 'NV1', 'NV2', 'TSPV']::varchar[])),
+  "clearance" clearance,
   "specialties" text[],
   "certifications" text[],
   "active" boolean NOT NULL DEFAULT 't'
@@ -35,7 +48,7 @@ CREATE TABLE "project" (
   "opportunity_id" varchar PRIMARY KEY,
   "changepoint_id" varchar UNIQUE,
   "name" varchar NOT NULL,
-  "revenue_type" varchar NOT NULL CHECK(revenue_type = ANY(ARRAY['Fixed Fee', 'T&M']::varchar[])),
+  "revenue_type" revenue_type,
   "customer" varchar NOT NULL,
   "end_customer" varchar,
   "project_manager_id" int,

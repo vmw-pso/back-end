@@ -217,20 +217,20 @@ func (m *ResourceModel) Update(r *Resource) error {
 func (m *ResourceModel) GetAll(name string, workgroups []string, clearance string, specialties []string,
 	certifications []string, manager string, active bool, filters Filters) ([]*Resource, Metadata, error) {
 	query := fmt.Sprintf(`
-		SELECT count(*) OVER(), r.employee_id, r.name, r.email, job_title.title, m.name AS manager, workgroup.workgroup_name, r.clearance, r.specialties, r.certifications, r.active
-		FROM (((resource r
-			INNER JOIN job_title ON r.job_title_id=job_title.title_id)
-			INNER JOIN resource m ON r.manager_id=m.employee_id)
-			INNER JOIN workgroup ON workgroup.workgroup_id=r.workgroup_id)
-		WHERE (workgroup.workgroup_name = ANY($1) OR $1 = '{}')
-		AND (r.clearance = $2 OR $2 = '')
-		AND (r.specialties @> $3 OR $3 = '{}')
-		AND (r.certifications @> $4 OR $4 = '{}')
-		AND (m.name = $5 OR $5 = '')
-		AND (r.active = $6)
-		AND (r.name = $7 OR $7 = '')
-		ORDER BY %s %s, r.employee_id ASC
-		LIMIT $8 OFFSET $9`, fmt.Sprintf("r.%s", filters.sortColumn()), filters.sortDirection())
+        SELECT count(*) OVER(), r.employee_id, r.name, r.email, job_title.title, m.name AS manager, workgroup.workgroup_name, r.clearance, r.specialties, r.certifications, r.active
+        FROM (((resource r
+            INNER JOIN job_title ON r.job_title_id=job_title.title_id)
+            INNER JOIN resource m ON r.manager_id=m.employee_id)
+            INNER JOIN workgroup ON workgroup.workgroup_id=r.workgroup_id)
+        WHERE (workgroup.workgroup_name = ANY($1) OR $1 = '{}')
+        AND (r.clearance::text = $2 OR $2 = '')
+        AND (r.specialties @> $3 OR $3 = '{}')
+        AND (r.certifications @> $4 OR $4 = '{}')
+        AND (m.name = $5 OR $5 = '')
+        AND (r.active = $6)
+        AND (r.name = $7 OR $7 = '')
+        ORDER BY %s %s, r.employee_id ASC
+        LIMIT $8 OFFSET $9`, fmt.Sprintf("r.%s", filters.sortColumn()), filters.sortDirection())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
