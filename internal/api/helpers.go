@@ -26,6 +26,11 @@ func (api *API) readIDParam(r *http.Request) (int64, error) {
 	return id, nil
 }
 
+func (api *API) readIDStringParam(r *http.Request) string {
+	params := httprouter.ParamsFromContext(r.Context())
+	return params.ByName("id")
+}
+
 func (api *API) readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	maxBytes := 1024 * 1024 // 1MB
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))

@@ -35,6 +35,7 @@ func ValidateName(v *validator.Validator, name string) {
 }
 
 func ValidateJobTitle(v *validator.Validator, jobTitle string) {
+	// TODO: Remove this hard-coding
 	jobTitles := []string{
 		"Associate Project Manager I",
 		"Associate Consultant I",
@@ -55,6 +56,7 @@ func ValidateJobTitle(v *validator.Validator, jobTitle string) {
 }
 
 func ValidateManager(v *validator.Validator, manager string) {
+	// TODO: remove this hard-coding
 	managers := []string{
 		"Caroline Dimitrovski",
 		"Gary Doyle",
@@ -66,6 +68,7 @@ func ValidateManager(v *validator.Validator, manager string) {
 }
 
 func ValidateWorkgroup(v *validator.Validator, workgroup string) {
+	// TODO: Remove this hard-coding
 	workgroups := []string{
 		"APJ - Managers and Non-Billable",
 		"Architects - ANZ",
@@ -104,14 +107,13 @@ type ResourceModel struct {
 
 func (m *ResourceModel) Insert(r *Resource) error {
 	query := `
-		INSERT INTO resources
-		(id, name, email, job_title, manager_id, workgroup_id, clearance, specialties, certifications, active)
+		INSERT INTO resource
+		(employee_id, name, email, job_title_id, manager_id, workgroup_id, clearance, specialties, certifications, active)
 		VALUES ($1, $2, $3, 
-			   (SELECT title FROM job_titles WHERE title=$4),
-			   (SELECT m.id FROM resources m WHERE m.name=$5),
-			   (SELECT id FROM workgroups WHERE name=$6),
-		       (SELECT level FROM clearances WHERE level=$7), 
-			   $8, $9, $10) RETURNING active`
+			   (SELECT title_id FROM job_title WHERE title=$4),
+			   (SELECT m.id FROM resource m WHERE m.name=$5),
+			   (SELECT workgroup_id FROM workgroup WHERE name=$6), 
+			   $7, $8, $9, $10) RETURNING active`
 
 	args := []interface{}{
 		r.ID,
@@ -138,11 +140,12 @@ func (m *ResourceModel) Get(id int64) (*Resource, error) {
 	}
 
 	query := `
-		SELECT resources.id, resources.name, resources.email, resources.job_title, m.name AS manager, workgroups.name, resources.clearance, resources.specialties, resources.certifications, resources.active
-		FROM ((resources
-			INNER JOIN resources m ON resources.manager_id=m.id)
-			INNER JOIN workgroups ON workgroups.id=resources.workgroup_id)
-		WHERE resources.id=$1`
+		SELECT r.employee_id, r.name, r.email, job_title.title, m.name AS manager, workgroup.name, r.clearance, r.specialties, r.certifications, r.active
+		FROM (((resource r
+			INNER JOIN job_title ON r.job_title_id=job_title.title_id)
+			INNER JOIN resource m ON resource.manager_id=m.id)
+			INNER JOIN workgroup ON workgroup.workgroup_id=resource.workgroup_id)
+		WHERE resource.id=$1`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -175,10 +178,11 @@ func (m *ResourceModel) Get(id int64) (*Resource, error) {
 
 func (m *ResourceModel) Update(r *Resource) error {
 	query := `
-		UPDATE resources
-		SET name=$1, email=$2, job_title=$3, 
-		    manager_id=(SELECT m.id FROM resources m WHERE m.name=$4), 
-			workgroup_id=(SELECT id FROM workgroups WHERE name=$5), 
+		UPDATE resource
+		SET name=$1, email=$2,
+		    job_title_id=(SELECT title_id FROM job_title WHERE title=$3), 
+		    manager_id=(SELECT m.id FROM resource m WHERE m.name=$4), 
+			workgroup_id=(SELECT workgroup_id FROM workgroup WHERE name=$5), 
 			clearance=$6, specialties=$7, certifications=$8, active=$9
 		WHERE id=$10`
 
@@ -213,24 +217,35 @@ func (m *ResourceModel) Update(r *Resource) error {
 func (m *ResourceModel) GetAll(name string, workgroups []string, clearance string, specialties []string,
 	certifications []string, manager string, active bool, filters Filters) ([]*Resource, Metadata, error) {
 	query := fmt.Sprintf(`
-		SELECT count(*) OVER(), r.id, r.name, r.email, r.job_title, m.name AS manager, workgroups.name, r.clearance, r.specialties, r.certifications, r.active
-		FROM ((resources r
-			INNER JOIN resources m ON r.manager_id = m.id)
-			INNER JOIN workgroups ON workgroups.id = r.workgroup_id)
-		WHERE (workgroups.name = ANY ($1) OR $1 = '{}')
-		AND (r.clearance = $2 OR $2 = '')
-		AND (r.specialties @> $3 OR $3 = '{}')
-		AND (r.certifications @> $4 OR $4 = '{}')
-		AND (m.name = $5 OR $5 = '')
-		AND (r.active = $6)
-		AND (r.name = $7 OR $7 = '')
-		ORDER BY %s %s, id ASC
-		LIMIT $8 OFFSET $9`, fmt.Sprintf("r.%s", filters.sortColumn()), filters.sortDirection())
+        SELECT count(*) OVER(), r.employee_id, r.name, r.email, job_title.title, m.name AS manager, workgroup.workgroup_name, r.clearance, r.specialties, r.certifications, r.active
+        FROM (((resource r
+            INNER JOIN job_title ON r.job_title_id=job_title.title_id)
+            INNER JOIN resource m ON r.manager_id=m.employee_id)
+            INNER JOIN workgroup ON workgroup.workgroup_id=r.workgroup_id)
+        WHERE (workgroup.workgroup_name = ANY($1) OR $1 = '{}')
+        AND (r.clearance::text = $2 OR $2 = '')
+        AND (r.specialties @> $3 OR $3 = '{}')
+        AND (r.certifications @> $4 OR $4 = '{}')
+        AND (m.name = $5 OR $5 = '')
+        AND (r.active = $6)
+        AND (r.name = $7 OR $7 = '')
+        ORDER BY %s %s, r.employee_id ASC
+        LIMIT $8 OFFSET $9`, fmt.Sprintf("r.%s", filters.sortColumn()), filters.sortDirection())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	args := []interface{}{pq.Array(workgroups), clearance, pq.Array(specialties), pq.Array(certifications), manager, active, name, filters.limit(), filters.offset()}
+	args := []interface{}{
+		pq.Array(workgroups),
+		clearance,
+		pq.Array(specialties),
+		pq.Array(certifications),
+		manager,
+		active,
+		name,
+		filters.limit(),
+		filters.offset(),
+	}
 
 	rows, err := m.DB.QueryContext(ctx, query, args...)
 	if err != nil {
