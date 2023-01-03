@@ -11,13 +11,17 @@ var (
 )
 
 type Models struct {
-	Resources ResourceModel
-	Projects  ProjectModel
+	Projects                ProjectModel
+	Resources               ResourceModel
+	ResourceRequests        ResourceRequestModel
+	ResourceRequestComments ResourceRequestCommentModel
 }
 
 func NewModels(db *sql.DB) *Models {
 	return &Models{
-		Resources: ResourceModel{DB: db},
-		Projects:  ProjectModel{DB: db},
+		Projects:                ProjectModel{DB: db},
+		Resources:               ResourceModel{DB: db},
+		ResourceRequests:        ResourceRequestModel{DB: db},
+		ResourceRequestComments: ResourceRequestCommentModel{DB: db},
 	}
 }

@@ -11,14 +11,15 @@ import (
 )
 
 type Project struct {
-	OpportunityID  string `json:"opportunityId"`
-	ChangepointID  string `json:"changepointId,omitempty"`
-	RevenueType    string `json:"revenueType"`
-	Name           string `json:"name"`
-	Customer       string `json:"customer"`
-	EndCustomer    string `json:"endCustomer,omitempty"`
-	ProjectManager string `json:"projectManager"`
-	Status         string `json:"status"`
+	OpportunityID    string             `json:"opportunityId"`
+	ChangepointID    string             `json:"changepointId,omitempty"`
+	RevenueType      string             `json:"revenueType"`
+	Name             string             `json:"name"`
+	Customer         string             `json:"customer"`
+	EndCustomer      string             `json:"endCustomer,omitempty"`
+	ProjectManager   string             `json:"projectManager"`
+	Status           string             `json:"status"`
+	ResourceRequests []*ResourceRequest `json:"resourceRequests,omitempty"`
 }
 
 func ValidateRevenueType(v *validator.Validator, revenueType string) {
@@ -103,10 +104,10 @@ func (m *ProjectModel) Get(id string) (*Project, error) {
 	}
 
 	query := `
-		SELECT changepoint_id, revenue_type, name, customer, end_customer, resource.name, project_status.status
+		SELECT p.changepoint_id, p.revenue_type, p.name, p.customer, p.end_customer, r.name, ps.status
 		FROM((project p
-			(INNER JOIN resource ON resource.employee_id=p.project_manager_id)
-			(INNER JOIN project_status ON p.status_id=project_status.status_id))
+			INNER JOIN resource r ON r.employee_id=p.project_manager_id)
+			INNER JOIN project_status ps ON p.status_id=ps.status_id)
 		WHERE opportunity_id=$1`
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -157,6 +157,33 @@ func (api *API) handleShowProject() http.HandlerFunc {
 			return
 		}
 
+		resourceRequests, err := api.models.ResourceRequests.GetForOpportunity(id)
+		if err != nil {
+			switch {
+			case errors.Is(err, data.ErrNotFound):
+				resourceRequests = []*data.ResourceRequest{}
+			default:
+				api.serverErrorResponse(w, r, err)
+				return
+			}
+		}
+
+		for _, req := range resourceRequests {
+			comments, err := api.models.ResourceRequestComments.GetForRequest(req.ID)
+			if err != nil {
+				switch {
+				case errors.Is(err, data.ErrNotFound):
+					resourceRequests = []*data.ResourceRequest{}
+				default:
+					api.serverErrorResponse(w, r, err)
+					return
+				}
+			}
+			req.Comments = comments
+		}
+
+		project.ResourceRequests = resourceRequests
+
 		err = api.writeJSON(w, http.StatusCreated, envelope{"project": project}, nil)
 		if err != nil {
 			api.serverErrorResponse(w, r, err)
