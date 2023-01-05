@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
@@ -12,7 +13,7 @@ import (
 
 type ResourceRequest struct {
 	ID            int64                     `json:"id"`
-	OpportunityID string                    `json:"opportunityId"`
+	OpportunityID string                    `json:"opportunityId,omitempty"`
 	JobTitle      string                    `json:"jobTitle"`
 	TotalHours    float64                   `json:"totalHours"`
 	Skills        []string                  `json:"skills"`
@@ -20,9 +21,10 @@ type ResourceRequest struct {
 	HoursPerWeek  float64                   `json:"hoursPerWeek"`
 	Status        string                    `json:"status"`
 	CreatedAt     time.Time                 `json:"createdAt"`
-	UpdatedAt     time.Time                 `json:"updatedAt"`
-	Version       int64                     `json:"version"`
+	UpdatedAt     time.Time                 `json:"updatedAt,omitempty"`
+	Version       int64                     `json:"version,omitempty"`
 	Comments      []*ResourceRequestComment `json:"comments,omitempty"`
+	Assignments   []*ResourceAssignment     `json:"assignedResources,omitempty"`
 }
 
 func ValidateSkills(v *validator.Validator, skills []string) {
@@ -30,8 +32,8 @@ func ValidateSkills(v *validator.Validator, skills []string) {
 	v.Check(validator.Unique(skills), "skills", "cannot contain duplicate values")
 }
 
-func ValidateStartDate(v *validator.Validator, startDate time.Time) {
-	v.Check(startDate.After(time.Now()), "startDate", "cannot be today or in the past")
+func ValidateStartDate(v *validator.Validator, startDate, proposedDate time.Time) {
+	v.Check(startDate.After(time.Now()), "startDate", fmt.Sprintf("cannot be before %s", startDate.String()))
 }
 
 func ValidateResourceRequestStatus(v *validator.Validator, status string) {
@@ -45,7 +47,7 @@ func ValidateResourceRequestStatus(v *validator.Validator, status string) {
 
 func ValidateResourceRequest(v *validator.Validator, rr ResourceRequest) {
 	ValidateSkills(v, rr.Skills)
-	ValidateStartDate(v, rr.StartDate)
+	ValidateStartDate(v, time.Now(), rr.StartDate)
 	ValidateResourceRequestStatus(v, rr.Status)
 }
 
@@ -157,9 +159,9 @@ func (m *ResourceRequestModel) Update(r *ResourceRequest) error {
 	return nil
 }
 
-func (m *ResourceRequestModel) GetForOpportunity(oppId string) ([]*ResourceRequest, error) {
+func (m *ResourceRequestModel) GetForOpportunity(oppID string) ([]*ResourceRequest, error) {
 	query := `
-		SELECT r.request_id, j.title, r.total_hours, r.skills, r.start_date, r.hours_per_week, r.status, r.created_at, r.updated_at, r.version
+		SELECT r.request_id, j.title, r.total_hours, r.skills, r.start_date, r.hours_per_week, r.status, r.created_at
 		FROM(resource_request r
 			INNER JOIN job_title j ON r.job_title_id=j.title_id)
 		WHERE r.opportunity_id=$1`
@@ -167,7 +169,7 @@ func (m *ResourceRequestModel) GetForOpportunity(oppId string) ([]*ResourceReque
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(ctx, query, oppId)
+	rows, err := m.DB.QueryContext(ctx, query, oppID)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +179,6 @@ func (m *ResourceRequestModel) GetForOpportunity(oppId string) ([]*ResourceReque
 
 	for rows.Next() {
 		var request ResourceRequest
-		request.OpportunityID = oppId
 		err := rows.Scan(
 			&request.ID,
 			&request.JobTitle,
@@ -187,8 +188,6 @@ func (m *ResourceRequestModel) GetForOpportunity(oppId string) ([]*ResourceReque
 			&request.HoursPerWeek,
 			&request.Status,
 			&request.CreatedAt,
-			&request.UpdatedAt,
-			&request.Version,
 		)
 		if err != nil {
 			return nil, err

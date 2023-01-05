@@ -11,11 +11,11 @@ import (
 
 type ResourceRequestComment struct {
 	ID                int64     `json:"id"`
-	ResourceRequestID int64     `json:"requestID"`
+	ResourceRequestID int64     `json:"requestID,omitempty"`
 	Comment           string    `json:"comment"`
 	CreatedAt         time.Time `json:"createdAt"`
-	UpdatedAt         time.Time `json:"updatedAt"`
-	Version           int64     `json:"version"`
+	UpdatedAt         time.Time `json:"updatedAt,omitempty"`
+	Version           int64     `json:"version,omitempty"`
 }
 
 func ValidateComment(v *validator.Validator, comment string) {
@@ -110,7 +110,7 @@ func (m *ResourceRequestCommentModel) Update(c *ResourceRequestComment) error {
 
 func (m *ResourceRequestCommentModel) GetForRequest(reqId int64) ([]*ResourceRequestComment, error) {
 	query := `
-		SELECT comment_id, comment, created_at, updated_at, version
+		SELECT comment_id, comment, created_at
 		FROM resource_request_comment
 		WHERE request_id=$1`
 
@@ -127,13 +127,10 @@ func (m *ResourceRequestCommentModel) GetForRequest(reqId int64) ([]*ResourceReq
 
 	for rows.Next() {
 		var comment ResourceRequestComment
-		comment.ResourceRequestID = reqId
 		err := rows.Scan(
 			&comment.ID,
 			&comment.Comment,
 			&comment.CreatedAt,
-			&comment.UpdatedAt,
-			&comment.Version,
 		)
 		if err != nil {
 			return nil, err

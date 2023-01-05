@@ -173,13 +173,25 @@ func (api *API) handleShowProject() http.HandlerFunc {
 			if err != nil {
 				switch {
 				case errors.Is(err, data.ErrNotFound):
-					resourceRequests = []*data.ResourceRequest{}
+					comments = []*data.ResourceRequestComment{}
 				default:
 					api.serverErrorResponse(w, r, err)
 					return
 				}
 			}
 			req.Comments = comments
+
+			assignments, err := api.models.ResourceAssignments.GetForRequest(req.ID)
+			if err != nil {
+				switch {
+				case errors.Is(err, data.ErrNotFound):
+					assignments = []*data.ResourceAssignment{}
+				default:
+					api.serverErrorResponse(w, r, err)
+					return
+				}
+			}
+			req.Assignments = assignments
 		}
 
 		project.ResourceRequests = resourceRequests

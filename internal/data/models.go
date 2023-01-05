@@ -15,6 +15,7 @@ type Models struct {
 	Resources               ResourceModel
 	ResourceRequests        ResourceRequestModel
 	ResourceRequestComments ResourceRequestCommentModel
+	ResourceAssignments     ResourceAssignmentModel
 }
 
 func NewModels(db *sql.DB) *Models {
@@ -23,5 +24,6 @@ func NewModels(db *sql.DB) *Models {
 		Resources:               ResourceModel{DB: db},
 		ResourceRequests:        ResourceRequestModel{DB: db},
 		ResourceRequestComments: ResourceRequestCommentModel{DB: db},
+		ResourceAssignments:     ResourceAssignmentModel{DB: db},
 	}
 }
