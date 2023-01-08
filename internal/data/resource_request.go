@@ -20,7 +20,7 @@ type ResourceRequest struct {
 	StartDate     time.Time                 `json:"startDate"`
 	HoursPerWeek  float64                   `json:"hoursPerWeek"`
 	Status        string                    `json:"status"`
-	CreatedAt     time.Time                 `json:"createdAt"`
+	CreatedAt     time.Time                 `json:"createdAt,omitempty"`
 	UpdatedAt     time.Time                 `json:"updatedAt,omitempty"`
 	Version       int64                     `json:"version,omitempty"`
 	Comments      []*ResourceRequestComment `json:"comments,omitempty"`
@@ -161,7 +161,7 @@ func (m *ResourceRequestModel) Update(r *ResourceRequest) error {
 
 func (m *ResourceRequestModel) GetForOpportunity(oppID string) ([]*ResourceRequest, error) {
 	query := `
-		SELECT r.request_id, j.title, r.total_hours, r.skills, r.start_date, r.hours_per_week, r.status, r.created_at
+		SELECT r.request_id, j.title, r.total_hours, r.skills, r.start_date, r.hours_per_week, r.status, r.created_at, r.updated_at, r.version
 		FROM(resource_request r
 			INNER JOIN job_title j ON r.job_title_id=j.title_id)
 		WHERE r.opportunity_id=$1`
@@ -188,6 +188,8 @@ func (m *ResourceRequestModel) GetForOpportunity(oppID string) ([]*ResourceReque
 			&request.HoursPerWeek,
 			&request.Status,
 			&request.CreatedAt,
+			&request.UpdatedAt,
+			&request.Version,
 		)
 		if err != nil {
 			return nil, err

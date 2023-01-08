@@ -13,7 +13,7 @@ type ResourceRequestComment struct {
 	ID                int64     `json:"id"`
 	ResourceRequestID int64     `json:"requestID,omitempty"`
 	Comment           string    `json:"comment"`
-	CreatedAt         time.Time `json:"createdAt"`
+	CreatedAt         time.Time `json:"createdAt,omitempty"`
 	UpdatedAt         time.Time `json:"updatedAt,omitempty"`
 	Version           int64     `json:"version,omitempty"`
 }
@@ -110,7 +110,7 @@ func (m *ResourceRequestCommentModel) Update(c *ResourceRequestComment) error {
 
 func (m *ResourceRequestCommentModel) GetForRequest(reqId int64) ([]*ResourceRequestComment, error) {
 	query := `
-		SELECT comment_id, comment, created_at
+		SELECT comment_id, comment, created_at, updated_at, version
 		FROM resource_request_comment
 		WHERE request_id=$1`
 
@@ -131,6 +131,8 @@ func (m *ResourceRequestCommentModel) GetForRequest(reqId int64) ([]*ResourceReq
 			&comment.ID,
 			&comment.Comment,
 			&comment.CreatedAt,
+			&comment.UpdatedAt,
+			&comment.Version,
 		)
 		if err != nil {
 			return nil, err
